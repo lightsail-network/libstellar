@@ -1,0 +1,49 @@
+name: Sync from app-stellar
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: current_repo
+
+      - name: Checkout app-stellar repo
+        uses: actions/checkout@v4
+        with:
+          repository: lightsail-network/app-stellar
+          path: app_stellar_repo
+
+      - name: Copy files from app-stellar to current repo
+        run: |
+          cd current_repo
+          shopt -s extglob
+          rm -rf !(README.md|LICENSE|.github|.git)
+          cp -r ../app_stellar_repo/libstellar/* .
+          git status
+        
+      - name: Commit changes
+        run: |
+          cd current_repo
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+            git add .
+            app_stellar_commit_id=$(git -C ../app_stellar_repo rev-parse HEAD)
+            git commit -m "sync from lightsail-network/app-stellar@${app_stellar_commit_id}"
+          fi
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+          directory: current_repo
